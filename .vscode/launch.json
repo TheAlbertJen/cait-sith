@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'cait-sith'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=cait-sith",
+                    "--package=cait-sith"
+                ],
+                "filter": {
+                    "name": "cait-sith",
+                    "kind": "bin"
+                }
+            },
+            "args": [ "-u", "76561197984032022", "-k", "330BF0080ECB4D9D26CBE0B0B1AC3414" ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'cait-sith'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=cait-sith",
+                    "--package=cait-sith"
+                ],
+                "filter": {
+                    "name": "cait-sith",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

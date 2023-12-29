@@ -1,21 +1,24 @@
 # cait-sith
 A Rust implementation of a Steam Deck library suggester
 
-
 ## Purpose
-Create a simple Rust program that generates a list of games to play that are Steam Deck Verified/Playable, and can be sorted by HowLongToBeat times
+Create a simple Rust program that generates a list of games to play that are Steam Deck Verified/Playable, and can be sorted by HowLongToBeat times. Calls ProtonDB directly to retreive JSON data for each owned appId.
+
+## Usage
+```
+cait-sith STEAM_USER_ID API_KEY
+```
 
 ## Libraries
 ### Major Features
-https://crates.io/crates/rsteam
-https://crates.io/crates/proton-api-rs
+https://crates.io/crates/reqwest
 https://crates.io/crates/howlongtobeat
+https://crates.io/crates/serde
+https://crates.io/crates/serde_json
 
 ### Minor Features
 https://crates.io/crates/libsqlite3-sys
 https://crates.io/crates/ratatui
-https://crates.io/crates/serde
-https://crates.io/crates/serde_json
 
 
 ## TODO
@@ -28,7 +31,8 @@ https://crates.io/crates/serde_json
 
 ### Sorting
 - [ ] HLTB
-- [ ] Steam Deck Proton Status
+- [ ] Proton Status
+- [ ] Steam Deck Status
 - [ ] Release Date
 - [ ] Recently Played
 - [ ] Steam Review Rating
