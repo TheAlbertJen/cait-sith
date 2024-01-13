@@ -18,19 +18,34 @@ struct ProtonDbInfo {
     tier: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 struct SteamGameInfo {
-    #[serde(rename = "appId")]
+    #[serde(rename = "appid")]
     app_id: u32,
+    #[serde(default = "default_name")]
     name: String,
+    #[serde(default = "default_playtime")]
     playtime_forever: u32,
+    #[serde(default = "default_playtime")]
     playtime_2weeks: u32,
     rtime_last_played: u32,
+}
+fn default_name() -> String {
+    "NOT FOUND".to_string()
+}
+fn default_playtime() -> u32 {
+    0
 }
 
 #[derive(Debug, Deserialize)]
 struct SteamOwnedGamesResponse {
-    games: Vec<SteamGameInfo>,
+    response: NestedSteamData
+}
+
+#[derive(Debug, Deserialize)]
+struct NestedSteamData {
+    game_count: u32,
+    games: Vec<SteamGameInfo>
 }
 
 pub struct LocalGameInfo {
@@ -82,43 +97,56 @@ impl DataManager {
         let connection = Connection::open("./games.db").unwrap();
 
         Self {
-            http_client: Client::new(),
+            http_client: Client::builder().gzip(true).deflate(true).brotli(true).build().unwrap(),
             db: connection
         }
     }
 
     fn get_protondb_info(&self, app_id: u32) -> ProtonDbInfo {
-        self.http_client.get(format!(
+        let response = self.http_client.get(format!(
             "https://www.protondb.com/api/v1/reports/summaries/{}.json",
             app_id
-        )).send().unwrap()
-        .json::<ProtonDbInfo>()
-        .unwrap()
+        )).send().unwrap();
+        
+        if response.status().is_success() {
+            return response
+            .json::<ProtonDbInfo>()
+            .unwrap()
+        } else {
+            return ProtonDbInfo {
+                tier: "Unknown".to_string()
+            }
+        }
+        
     }
     
     pub fn build_local_steam_db(&self, steam_id: u64, api_key: String) -> Result<(), reqwest::Error> {
         // get owned games
         let response = self.http_client.get(
-            format!("http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={}&steamid={}&format=json",
-                        api_key,
-                        steam_id
-                )
+            "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
             )
-        .send().unwrap();
+            .query(&[
+                ("key", api_key.to_string()),
+                ("steamid", steam_id.to_string()),
+                ("format", "json".to_string()),
+                ("include_appinfo", "true".to_string()),
+                ("include_extended_appinfo", "true".to_string())
+            ])
+        .send().unwrap().json::<SteamOwnedGamesResponse>().unwrap();
 
         // response is gzipped (duh)
-
-        let owned_games = response.json::<SteamOwnedGamesResponse>()
-        .unwrap()
-        .games;
+        // let owned_games = serde_json::from_str::<SteamOwnedGamesResponse>(&(response.text().unwrap())).unwrap()
+        // .response.games;
+        let owned_games = response.response.games;
     
         self.db.execute("create table if not exists game_info (
-            app_id integer primary key,
-            name text not null unique,
+            app_id integer primary key unique,
+            name text not null,
             playtime_forever integer default 0,
             playtime_2weeks integer default 0,
             rtime_last_played integer default 0,
-            proton_tier text default \"UNKNOWN\"
+            proton_tier text default \"UNKNOWN\",
+            last_fetch integer default 0
         )", []).unwrap();
 
         let local_infos = owned_games.iter().map(|game_info| {
@@ -177,5 +205,40 @@ impl DataManager {
             ":proton_tier": game_info.proton_status,
             ":last_fetch": game_info.last_fetch
         })
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::data::SteamGameInfo;
+
+    #[test]
+    fn deserialize_steam_game() {
+        let game_json = r#"
+        {
+            "appid": 70,
+            "name": "Half-Life",
+            "playtime_forever": 0,
+            "img_icon_url": "95be6d131fc61f145797317ca437c9765f24b41c",
+            "playtime_windows_forever": 0,
+            "playtime_mac_forever": 0,
+            "playtime_linux_forever": 0,
+            "rtime_last_played": 0,
+            "has_workshop": false,
+            "has_market": false,
+            "has_dlc": true,
+            "playtime_disconnected": 0
+        }"#;
+        let expected: SteamGameInfo = SteamGameInfo {
+            app_id: 70,
+            name: "Half-Life".to_string(),
+            playtime_forever: 0,
+            playtime_2weeks: 0,
+            rtime_last_played: 0
+        };
+        let deserialized = serde_json::from_str::<SteamGameInfo>(game_json).unwrap();
+        
+        assert_eq!(deserialized, expected);
     }
 }
